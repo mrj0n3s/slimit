@@ -56,10 +56,33 @@ class ScopeTreeVisitor(Visitor):
         symbol = VarSymbol(name=ident.value)
         if symbol not in self.current_scope:
             self.current_scope.define(symbol)
+        else:
+            self.current_scope.symbols[ident.value].usage+=1
         ident.scope = self.current_scope
         self.visit(node.initializer)
 
+    def visit_BracketAccessor(self,node):
+        for child in node:
+            self.visit(child)
+
+    def visit_Assign(self,node):
+        ident = node.left
+        if type(ident).__name__ != 'BracketAccessor' and type(ident).__name__ !='DotAccessor':
+            symbol = VarSymbol(name=ident.value)
+            if symbol not in self.current_scope:
+                self.current_scope.define(symbol)
+            else:
+                self.current_scope.symbols[ident.value].usage+=1
+            ident.scope = self.current_scope
+            ident._mangle_candidate = 0
+            self.visit(node.right)
+        else:
+            for child in node:
+                self.visit(child)
+
     def visit_Identifier(self, node):
+        if node.value in self.current_scope.symbols:
+            self.current_scope.symbols[node.value].usage+=1
         node.scope = self.current_scope
 
     def visit_FuncDecl(self, node):
@@ -197,3 +220,56 @@ class NameManglerVisitor(Visitor):
         mangled = symbol.scope.mangled.get(name)
         if mangled is not None:
             node.value = mangled
+            
+class DeleteVisitor(Visitor):
+    def visit(self, node, parent):
+        method = 'visit_%s' % node.__class__.__name__
+        return getattr(self, method, self.generic_visit)(node, parent)
+
+    def generic_visit(self, node, parent):
+        if node is None:
+            return
+        if parent in node:
+            node._children_list.remove(parent)
+            return
+        if isinstance(node, list):
+            for child in node:
+                self.visit(child, parent)
+        else:
+            for child in node.children():
+                self.visit(child, parent)
+            
+class UnusedVariablesVisitor(Visitor):
+    
+    def visit(self, node, parent):
+        method = 'visit_%s' % node.__class__.__name__
+        return getattr(self, method, self.generic_visit)(node, parent)
+
+    def generic_visit(self, node, parent):
+        if node is None:
+            return
+        if isinstance(node, list):
+            for child in node:
+                self.visit(child, parent)
+        else:
+            for child in node.children():
+                self.visit(child, parent)
+
+    def visit_VarStatement(self,node,parent):
+        if len(node._children_list) == 0:
+            DeleteVisitor().visit(parent, node)
+            return
+        if isinstance(node, list):
+            for child in node:
+                self.visit(child, parent)
+        else:
+            for child in node.children():
+                self.visit(child, parent)
+
+    def visit_VarDecl(self, node, parent):
+        symbol = node.identifier.scope.resolve(node.identifier.value)
+        if symbol is None:
+            return
+        if symbol.usage <= 1:
+            DeleteVisitor().visit(parent, node)
+            #parent._children_list[0]._children_list.remove(node)

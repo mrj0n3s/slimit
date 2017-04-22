@@ -35,6 +35,7 @@ from slimit.lexer import Lexer
 
 
 ID_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+count = 0
 
 def powerset(iterable):
     """powerset('abc') -> a b c ab ac bc abc"""
@@ -132,8 +133,11 @@ class Scope(object):
            or any sub-scope.
 
         """
+        global count
         while True:
-            mangled = self.base54.next()
+            mangled = 'variable_%d' % count
+            count+=1
+            #mangled = self.base54.next()
 
             # case 1
             ancestor = self._get_scope_with_mangled(mangled)
@@ -169,6 +173,7 @@ class Symbol(object):
     def __init__(self, name):
         self.name = name
         self.scope = None
+        self.usage = 1
 
 
 class VarSymbol(Symbol):
