@@ -343,10 +343,13 @@ class Lexer(object):
 
     t_ignore = ' \t'
 
+    #removed |  0[0-7]+                        # or octal_integer_literal (spec B.1.1)
+    #changed (?:[0-9]+)          # decimal_integer_literal
+    #we don't need extra check for octal because we only have a NUMBER token anyway
+    #old grammar didn't allow 000009 even though it is correct in javascript
     t_NUMBER = r"""
     (?:
         0[xX][0-9a-fA-F]+              # hex_integer_literal
-     |  0[0-7]+                        # or octal_integer_literal (spec B.1.1)
      |  (?:                            # or decimal_literal
             (?:0|[1-9][0-9]*)          # decimal_integer_literal
             \.                         # dot
@@ -357,7 +360,7 @@ class Lexer(object):
             [0-9]+                     # decimal_digits
             (?:[eE][+-]?[0-9]+)?       # exponent_part_opt
          |
-            (?:0|[1-9][0-9]*)          # decimal_integer_literal
+            (?:[0-9]+)          # decimal_integer_literal
             (?:[eE][+-]?[0-9]+)?       # exponent_part_opt
          )
     )

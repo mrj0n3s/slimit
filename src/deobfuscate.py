@@ -23,11 +23,6 @@ from slimit.visitors.scopevisitor import (
 from slimit.visitors.minvisitor import ECMAMinifier
 import jsbeautifier
 from jsbeautifier import Tokenizer,Output
-import re
-from pip._vendor.html5lib.constants import replacementCharacters
-
-def cleanLeadingZeros(text):
-    return re.sub(r"(?<!\d)0+(?=\d+)", "",text)
 
 class varObject():
     def __init__(self,varName,value,isDefined = 0):
@@ -145,10 +140,20 @@ def removeUnusedVars(tree):
     mangler.visit(tree,tree)
     mangler.visit(tree,tree)
     mangler.visit(tree,tree)
+    mangler.visit(tree,tree)
+    mangler.visit(tree,tree)
 
-inFile = open('angler','r')
+inFile = open('E:\DHL__Report__4953613843__Do__April__06__2017.malicioustxt','r')
 outFile = open('deobfuscated','w')
 text = inFile.read()
+'''text = """
+var a=-0000002,b=0;
+var x= "0b2"
+if(a){
+    var c = 1;
+    WScript.Echo(x)
+}
+"""'''
 try:
     opts = jsbeautifier.default_options()
     opts.unescape_strings = 1
@@ -156,13 +161,14 @@ try:
 except:
     pass
 
-#text = cleanLeadingZeros(text)
 #x = minify(text, mangle=True, mangle_toplevel=True)
 parser = Parser()
 tree = parser.parse(text)
 #visitor = MyVisitor()
 #visitor.generic_visit(tree)
-removeUnusedVars(tree)
+unusedvisitor = UnusedVariablesVisitor()
+unusedvisitor.do(tree)
+#removeUnusedVars(tree)
 #testvisitor = TestVisitor()
 #testvisitor.visit(tree)
 '''sym_table = SymbolTable()
@@ -170,11 +176,11 @@ visitor = ScopeTreeVisitor(sym_table)
 visitor.visit(tree)
 print(visitor.sym_table.globals.symbols)'''
 
-concatvisitor = ConcatVisitor()
-concatvisitor.do(tree)
-text = minify(tree.to_ecma(), mangle=True, mangle_toplevel=True)
+#concatvisitor = ConcatVisitor()
+#concatvisitor.do(tree)
+#text = minify(tree.to_ecma(), mangle=True, mangle_toplevel=True)
 #text = ECMAMinifier().visit(tree)
-#text = tree.to_ecma()
+text = tree.to_ecma()
 opts = jsbeautifier.default_options()
 opts.unescape_strings = 1
 res = jsbeautifier.beautify(text,opts)

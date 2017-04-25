@@ -56,8 +56,8 @@ class ScopeTreeVisitor(Visitor):
         symbol = VarSymbol(name=ident.value)
         if symbol not in self.current_scope:
             self.current_scope.define(symbol)
-        else:
-            self.current_scope.symbols[ident.value].usage+=1
+        #else:
+            #self.current_scope.symbols[ident.value].usage+=1
         ident.scope = self.current_scope
         self.visit(node.initializer)
 
@@ -71,8 +71,13 @@ class ScopeTreeVisitor(Visitor):
             symbol = VarSymbol(name=ident.value)
             if symbol not in self.current_scope:
                 self.current_scope.define(symbol)
-            else:
-                self.current_scope.symbols[ident.value].usage+=1
+            '''
+            var a = 2;
+            var a = 3;
+            should still be unused
+            '''
+            #else:usage shouldn't go up when variables get reassigned
+                #self.current_scope.symbols[ident.value].usage+=1
             ident.scope = self.current_scope
             ident._mangle_candidate = 0
             self.visit(node.right)
@@ -95,13 +100,23 @@ class ScopeTreeVisitor(Visitor):
         func_sym = FuncSymbol(
             name=name, enclosing_scope=self.current_scope)
         if name is not None:
-            self.current_scope.define(func_sym)
+            if func_sym not in self.current_scope:
+                self.current_scope.define(func_sym)
+            else:
+                self.current_scope.symbols[name].usage+=1
+            
+            #self.current_scope.define(func_sym)
             node.scope = self.current_scope
 
         # push function scope
         self.current_scope = func_sym
         for ident in node.parameters:
-            self.current_scope.define(VarSymbol(ident.value))
+            
+            symbol = VarSymbol(name=ident.value)
+            if symbol not in self.current_scope:
+                self.current_scope.define(symbol)
+            else:
+                self.current_scope.symbols[ident.value].usage+=1
             ident.scope = self.current_scope
 
         for element in node.elements:
@@ -222,54 +237,122 @@ class NameManglerVisitor(Visitor):
             node.value = mangled
             
 class DeleteVisitor(Visitor):
-    def visit(self, node, parent):
+    
+    def __init__(self,removals):
+        self.removals = removals
+        
+    def set_removals(self,removals):
+        self.removals = removals
+    
+    def visit(self, node):
         method = 'visit_%s' % node.__class__.__name__
-        return getattr(self, method, self.generic_visit)(node, parent)
+        return getattr(self, method, self.generic_visit)(node)
+    
+    def visit_ExprStatement(self,node):
+        if node.expr in self.removals:
+            self.removals.append(node)
 
-    def generic_visit(self, node, parent):
+    def generic_visit(self, node):
+        removal = []
         if node is None:
-            return
-        if parent in node:
-            node._children_list.remove(parent)
             return
         if isinstance(node, list):
             for child in node:
-                self.visit(child, parent)
+                if child in self.removals:
+                    removal.append(child)
+                else:
+                    self.visit(child)
+            for i in removal:
+                node.children().remove(i)
         else:
             for child in node.children():
-                self.visit(child, parent)
+                if child in self.removals:
+                    removal.append(child)
+                else:
+                    self.visit(child)
+            for i in removal:
+                node.children().remove(i)
             
 class UnusedVariablesVisitor(Visitor):
     
-    def visit(self, node, parent):
-        method = 'visit_%s' % node.__class__.__name__
-        return getattr(self, method, self.generic_visit)(node, parent)
+    def __init__(self):
+        self.unusedVars = []
+        
+    def do(self,tree):
+            sym_table = SymbolTable()
+            visitor = ScopeTreeVisitor(sym_table)
+            visitor.visit(tree)
+            deletevisit = DeleteVisitor(self.unusedVars)
 
-    def generic_visit(self, node, parent):
+            fill_scope_references(tree)
+    
+            self.visit(tree)
+            deletevisit.set_removals(self.unusedVars)
+            deletevisit.visit(tree)
+            self.visit(tree)
+            deletevisit.set_removals(self.unusedVars)
+            deletevisit.visit(tree)
+            self.visit(tree)
+            deletevisit.set_removals(self.unusedVars)
+            deletevisit.visit(tree)
+            self.visit(tree)
+            deletevisit.set_removals(self.unusedVars)
+            deletevisit.visit(tree)
+            self.visit(tree)
+            deletevisit.set_removals(self.unusedVars)
+            deletevisit.visit(tree)
+            self.visit(tree)
+            deletevisit.set_removals(self.unusedVars)
+            deletevisit.visit(tree)
+    
+    def visit(self, node):
+        method = 'visit_%s' % node.__class__.__name__
+        return getattr(self, method, self.generic_visit)(node)
+
+    def generic_visit(self, node):
         if node is None:
             return
         if isinstance(node, list):
             for child in node:
-                self.visit(child, parent)
+                self.visit(child)
         else:
             for child in node.children():
-                self.visit(child, parent)
+                self.visit(child)
 
-    def visit_VarStatement(self,node,parent):
+    def visit_VarStatement(self,node):
         if len(node._children_list) == 0:
-            DeleteVisitor().visit(parent, node)
+            #DeleteVisitor().visit(parent, node)
+            self.unusedVars.append(node)
             return
         if isinstance(node, list):
             for child in node:
-                self.visit(child, parent)
+                self.visit(child)
         else:
             for child in node.children():
-                self.visit(child, parent)
+                self.visit(child)
 
-    def visit_VarDecl(self, node, parent):
+    def visit_VarDecl(self, node):
         symbol = node.identifier.scope.resolve(node.identifier.value)
         if symbol is None:
             return
         if symbol.usage <= 1:
-            DeleteVisitor().visit(parent, node)
+            self.unusedVars.append(node)
+            #DeleteVisitor().visit(parent, node)
             #parent._children_list[0]._children_list.remove(node)
+            
+    #TODO
+    #def visit_ExprStatement which contains Assign Statements
+
+    def visit_Assign(self,node):
+        #left part of an assignment = identifier
+        ident = node.left
+        if type(ident).__name__ != 'BracketAccessor' and type(ident).__name__ !='DotAccessor':
+            symbol = ident.scope.resolve(ident.value)
+            if symbol is not None:
+                if symbol.usage <= 1:
+                    #append the Assign object node to get rid of the complete assignment
+                    self.unusedVars.append(node)
+            self.visit(node.right)
+        else:
+            for child in node:
+                self.visit(child)
