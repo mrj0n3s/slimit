@@ -89,6 +89,26 @@ class ScopeTreeVisitor(Visitor):
         if node.value in self.current_scope.symbols:
             self.current_scope.symbols[node.value].usage+=1
         node.scope = self.current_scope
+        
+    def visit_FunctionCall(self,node):
+        name = None
+        if node.identifier is not None:
+            if hasattr(node.identifier, 'value'):
+                name = node.identifier.value
+            self.visit(node.identifier)
+            
+        if name is not None:
+            existing_symbol = self.current_scope.symbols.get(name)
+            if existing_symbol is None and self.current_scope.enclosing_scope is not None:
+                existing_symbol = self.current_scope.enclosing_scope.symbols.get(name)
+            if existing_symbol is not None:
+                if existing_symbol in self.current_scope:
+                    self.current_scope.symbols[name].usage+=1
+                elif existing_symbol in self.current_scope.enclosing_scope:
+                    self.current_scope.enclosing_scope.symbols[name].usage+=1
+        for arg in node.args:
+            self.visit(arg)       
+        
 
     def visit_FuncDecl(self, node):
         if node.identifier is not None:
@@ -102,8 +122,8 @@ class ScopeTreeVisitor(Visitor):
         if name is not None:
             if func_sym not in self.current_scope:
                 self.current_scope.define(func_sym)
-            else:
-                self.current_scope.symbols[name].usage+=1
+            #else:
+                #self.current_scope.symbols[name].usage+=1
             
             #self.current_scope.define(func_sym)
             node.scope = self.current_scope
@@ -273,36 +293,36 @@ class DeleteVisitor(Visitor):
             for i in removal:
                 node.children().remove(i)
             
-class UnusedVariablesVisitor(Visitor):
+class UnusedObjectsVisitor(Visitor):
     
     def __init__(self):
-        self.unusedVars = []
+        self.unusedObjects = []
         
     def do(self,tree):
             sym_table = SymbolTable()
             visitor = ScopeTreeVisitor(sym_table)
             visitor.visit(tree)
-            deletevisit = DeleteVisitor(self.unusedVars)
+            deletevisit = DeleteVisitor(self.unusedObjects)
 
             fill_scope_references(tree)
     
             self.visit(tree)
-            deletevisit.set_removals(self.unusedVars)
+            deletevisit.set_removals(self.unusedObjects)
             deletevisit.visit(tree)
             self.visit(tree)
-            deletevisit.set_removals(self.unusedVars)
+            deletevisit.set_removals(self.unusedObjects)
             deletevisit.visit(tree)
             self.visit(tree)
-            deletevisit.set_removals(self.unusedVars)
+            deletevisit.set_removals(self.unusedObjects)
             deletevisit.visit(tree)
             self.visit(tree)
-            deletevisit.set_removals(self.unusedVars)
+            deletevisit.set_removals(self.unusedObjects)
             deletevisit.visit(tree)
             self.visit(tree)
-            deletevisit.set_removals(self.unusedVars)
+            deletevisit.set_removals(self.unusedObjects)
             deletevisit.visit(tree)
             self.visit(tree)
-            deletevisit.set_removals(self.unusedVars)
+            deletevisit.set_removals(self.unusedObjects)
             deletevisit.visit(tree)
     
     def visit(self, node):
@@ -322,7 +342,7 @@ class UnusedVariablesVisitor(Visitor):
     def visit_VarStatement(self,node):
         if len(node._children_list) == 0:
             #DeleteVisitor().visit(parent, node)
-            self.unusedVars.append(node)
+            self.unusedObjects.append(node)
             return
         if isinstance(node, list):
             for child in node:
@@ -336,7 +356,7 @@ class UnusedVariablesVisitor(Visitor):
         if symbol is None:
             return
         if symbol.usage <= 1:
-            self.unusedVars.append(node)
+            self.unusedObjects.append(node)
             #DeleteVisitor().visit(parent, node)
             #parent._children_list[0]._children_list.remove(node)
             
@@ -351,8 +371,19 @@ class UnusedVariablesVisitor(Visitor):
             if symbol is not None:
                 if symbol.usage <= 1:
                     #append the Assign object node to get rid of the complete assignment
-                    self.unusedVars.append(node)
+                    self.unusedObjects.append(node)
             self.visit(node.right)
         else:
             for child in node:
                 self.visit(child)
+    
+    def visit_FuncDecl(self,node):
+        symbol = node.identifier.scope.resolve(node.identifier.value)
+        if symbol is None:
+            return
+        if symbol.usage <= 1:
+            self.unusedObjects.append(node)
+        for child in node.parameters:
+            self.visit(child)
+        for child in node.elements:
+            self.visit(child)

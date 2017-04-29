@@ -1,5 +1,5 @@
 '''
-Created on 22.04.2017
+Created on 29.04.2017
 
 @author: Mr. Jones
 '''
@@ -8,7 +8,7 @@ from slimit.visitors.replacementvisitor import ReplacementVisitor
 def checkNodeType(node,varName):
     return type(node).__name__ == varName
 
-class ConcatVisitor():
+class FoldingVisitor():
         
     def __init__(self):
         self.concatenated = 0
@@ -28,14 +28,20 @@ class ConcatVisitor():
         for child in node:
             self.visit(child,parent)
             
+    #I tried to avoid using eval
+    #make sure that value is always a string value
     def visit_BinOp(self,node,parent):
-        if node.op == '+':
-            '''if checkNodeType(node.left,'Number') and checkNodeType(node.right,'Number'):
-                node.left.value = int(node.left.value)+int(node.right.value)
-                self.concatenated |= self.replacement.visit(parent,node,node.left)'''
-            if checkNodeType(node.left,'String') and checkNodeType(node.right,'String'):
-                node.left.value = '\''+str(node.left.value[1:len(node.left.value)-1])+str(node.right.value[1:len(node.right.value)-1])+'\''
+        if node.op == '-':
+            if checkNodeType(node.left,'Number') and checkNodeType(node.right,'Number'):
+                node.left.value = str(int(node.left.value)-int(node.right.value))
                 self.concatenated |= self.replacement.visit(parent,node,node.left)
+        elif node.op == '+':
+            if checkNodeType(node.left,'Number') and checkNodeType(node.right,'Number'):
+                node.left.value = str(int(node.left.value)+int(node.right.value))
+                self.concatenated |= self.replacement.visit(parent,node,node.left)
+            '''if checkNodeType(node.left,'String') and checkNodeType(node.right,'String'):
+                node.left.value = '\''+str(node.left.value[1:len(node.left.value)-1])+str(node.right.value[1:len(node.right.value)-1])+'\''
+                self.concatenated |= self.replacement.visit(parent,node,node.left)'''
             '''elif checkNodeType(node.left, 'BinOp') and checkNodeType(node.right,'String'):
                 if checkNodeType(node.left.right,'String'):
                     node.left.right.value = '\''+str(node.left.right.value[1:len(node.left.right.value)-1])+str(node.right.value[1:len(node.right.value)-1])+'\''

@@ -222,6 +222,24 @@ class ReplacementVisitor():
             ret |= self.visit(child, target, replacement)
         return ret
     
+    def visit_Break(self,node,target,replacement):
+        if node.identifier == target:
+            node.identifier = replacement
+            return 1
+        ret = 0
+        for child in node:
+            ret |= self.visit(child, target, replacement)
+        return ret
+    
+    def visit_Continue(self,node,target,replacement):
+        if node.identifier == target:
+            node.identifier = replacement
+            return 1
+        ret = 0
+        for child in node:
+            ret |= self.visit(child, target, replacement)
+        return ret
+    
     def visit_For(self,node,target,replacement):
         if node.init == target:
             node.init = replacement
