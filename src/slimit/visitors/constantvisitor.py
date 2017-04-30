@@ -3,7 +3,7 @@ Created on 29.04.2017
 
 @author: Mr. Jones
 '''
-
+from slimit import ast
 class ConstantVisitor():
     
     '''used on flow graph basic blocks'''
@@ -26,7 +26,7 @@ class ConstantVisitor():
     def visit_VarDecl(self, node):
         #print(node.initializer)
         if node.initializer is not None:
-            self.var_declarations[node.identifier.value] = node.initializer.value
+            self.var_declarations[node.identifier.value] = node.initializer
         print(self.var_declarations)
             
     def visit_Assign(self,node):
@@ -34,12 +34,13 @@ class ConstantVisitor():
             if hasattr(node.left, 'value'):
                 if node.left.value in self.var_declarations:
                     if hasattr(node.right, 'value'):
-                        self.var_declarations[node.left.value] = node.right.value
+                        self.var_declarations[node.left.value] = node.right
     
     def visit_BinOp(self,node):
-        for child in node.children():
-            print(child)
-            if hasattr(child, 'value'):
-                if child.value in self.var_declarations:
-                    child.value = self.var_declarations[child.value]
+        if hasattr(node.left, 'value'):
+            if node.left.value in self.var_declarations:
+                node.left = self.var_declarations[node.left.value]
+        if hasattr(node.right, 'value'):
+            if node.right.value in self.var_declarations:
+                node.right = self.var_declarations[node.right.value]
                 

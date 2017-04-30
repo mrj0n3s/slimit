@@ -15,7 +15,7 @@ class CFGVisitor():
         if node is None:
             return None
         flow_node.node_list.append(node)
-        for child in node.children():
+        for child in node:
             self.visit(child, flow_node)
         return None
     
